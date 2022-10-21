@@ -35,8 +35,7 @@ require_once __DIR__ . '/vendor/autoload.php';
  * @copyright based on work by 2014 Johannes Burk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class quiz_export_engine
-{
+class quiz_export_engine {
     /**
      * Actual question page assignment like in quiz settings.
      */
@@ -60,8 +59,7 @@ class quiz_export_engine
      *                         One of PAGEMODE_TRUEPAGE, PAGEMODE_QUESTIONPERPAGE or PAGEMODE_SINGLEPAGE
      * @return string          File path and name as string of the pdf file.
      */
-    public function a2pdf($attemptobj, $pagemode)
-    {
+    public function a2pdf($attemptobj, $pagemode) {
         global $CFG;
         $parameters_additionnal_informations = $this->get_additionnal_informations($attemptobj);
 
@@ -160,9 +158,8 @@ class quiz_export_engine
      * @param $attemptobj
      * @return array
      */
-    protected function question_per_page($attemptobj)
-    {
-        $tmp_html_files = array();
+    protected function question_per_page($attemptobj) {
+        $tmp_html_files = [];
         $showall = false;
         $num_pages = $attemptobj->get_num_pages();
 
@@ -172,7 +169,7 @@ class quiz_export_engine
 
             foreach ($questionids as $questionid) {
                 // We have just one question id but an array is required from render function
-                $slots = array();
+                $slots = [];
                 $slots[] = $questionid;
 
                 $tmp_dir = sys_get_temp_dir();
@@ -199,9 +196,8 @@ class quiz_export_engine
      * @param $attemptobj
      * @return array
      */
-    protected function questions_paged($attemptobj)
-    {
-        $tmp_html_files = array();
+    protected function questions_paged($attemptobj) {
+        $tmp_html_files = [];
         $showall = false;
         $num_pages = $attemptobj->get_num_pages();
 
@@ -232,8 +228,7 @@ class quiz_export_engine
      * @param $attemptobj
      * @return string[]
      */
-    protected function all_questions($attemptobj)
-    {
+    protected function all_questions($attemptobj) {
         $slots = $attemptobj->get_slots();
         $showall = true;
         $lastpage = true;
@@ -248,7 +243,7 @@ class quiz_export_engine
         $output = $this->get_review_html($attemptobj, $slots, $page, $showall, $lastpage);
         file_put_contents($tmp_html_file, $output);
 
-        return array($tmp_html_file);
+        return [$tmp_html_file];
     }
 
     /**
@@ -263,8 +258,7 @@ class quiz_export_engine
      * @throws coding_exception
      * @throws moodle_exception
      */
-    protected function get_review_html($attemptobj, $slots, $page, $showall, $lastpage)
-    {
+    protected function get_review_html($attemptobj, $slots, $page, $showall, $lastpage) {
         $html = $this->render($attemptobj, $slots, $page, $showall, $lastpage);
         return $html;
     }
@@ -281,16 +275,39 @@ class quiz_export_engine
      * @throws coding_exception
      * @throws moodle_exception
      */
-    protected function render($attemptobj, $slots, $page, $showall, $lastpage)
-    {
+    protected function render($attemptobj, $slots, $page, $showall, $lastpage) {
         global $PAGE;
 
         $options = $attemptobj->get_display_options(true);
 
+        // $options->attempt = 1;
+        $options->overallfeedback = 0; // общий отзыв
+        // $options->readonly = true;
+        // $options->clearwrong = false; // очистка
+        // $options->correctness = 1;
+        // $options->marks = 2;
+        // $options->markdp = "2";
+        // $options->flags = 1;
+        $options->feedback = 0; // отзыв - за правильный/неправильный ответ
+        // $options->numpartscorrect = 1;
+        $options->generalfeedback = 0; // отзык - общий
+        $options->rightanswer = 0; // отзыв - правильный ответ
+        $options->manualcomment = 0; // комментарии оценщика
+        $options->history = 0; // история оценок
+        // $options->extrainfocontent = ""; // отзыв - дополнительный текст
+        // $options->extrahistorycontent = ""; // история оценок - дополнительный текст
+
+        // $options->history = 0;
+        // $options->feedback = 0;
+        // $options->numpartscorrect = 0;
+        // $options->generalfeedback = 0;
+        // $options->rightanswer = 0;
+        // $options->manualcomment = 0;
+
         // Ugly hack to get a new page
         $this->setup_new_page();
 
-        $url = new moodle_url('/mod/quiz/report/export/a2pdf.php', array('attempt' => $attemptobj->get_attemptid()));
+        $url = new moodle_url('/mod/quiz/report/export/a2pdf.php', ['attempt' => $attemptobj->get_attemptid()]);
         $PAGE->set_url($url);
 
         // Set up the page header.
@@ -299,6 +316,13 @@ class quiz_export_engine
         // $PAGE->set_heading($attemptobj->get_course()->fullname);
 
         $summarydata = $this->summary_table($attemptobj, $options);
+        unset($summarydata["startedon"]); // Тест начат
+        unset($summarydata["state"]); // Состояние
+        unset($summarydata["completedon"]); // Завершен
+        unset($summarydata["timetaken"]); // Прошло времени
+        unset($summarydata["marks"]); // Баллы
+        unset($summarydata["grade"]); // Оценка
+        unset($summarydata["user"]); // Студент
 
         // Display only content
         // $PAGE->force_theme('boost');
@@ -320,8 +344,7 @@ class quiz_export_engine
      * @param mod_quiz_display_options $options Extra options for the attempt.
      * @return array contains all table data for summary table
      */
-    protected function summary_table($attemptobj, $options)
-    {
+    protected function summary_table($attemptobj, $options) {
         global $USER, $DB;
 
         // Work out some time-related things.
@@ -344,47 +367,49 @@ class quiz_export_engine
         }
 
         // Prepare summary informat about the whole attempt.
-        $summarydata = array();
+        $summarydata = [];
         if (!$attemptobj->get_quiz()->showuserpicture && $attemptobj->get_userid() != $USER->id) {
             // If showuserpicture is true, the picture is shown elsewhere, so don't repeat it.
-            $student = $DB->get_record('user', array('id' => $attemptobj->get_userid()));
+            $student = $DB->get_record('user', ['id' => $attemptobj->get_userid()]);
             $usrepicture = new user_picture($student);
             $usrepicture->courseid = $attemptobj->get_courseid();
-            $summarydata['user'] = array(
+            $summarydata['user'] = [
                 'title' => $usrepicture,
-                'content' => new action_link(new moodle_url('/user/view.php', array(
-                    'id' => $student->id, 'course' => $attemptobj->get_courseid())),
+                'content' => new action_link(new moodle_url('/user/view.php', [
+                    'id' => $student->id,
+                    'course' => $attemptobj->get_courseid(),
+                ]),
                     fullname($student, true)),
-            );
+            ];
         }
 
         // Timing information.
-        $summarydata['startedon'] = array(
+        $summarydata['startedon'] = [
             'title' => get_string('startedon', 'quiz'),
             'content' => userdate($attempt->timestart),
-        );
+        ];
 
-        $summarydata['state'] = array(
+        $summarydata['state'] = [
             'title' => get_string('attemptstate', 'quiz'),
             'content' => quiz_attempt::state_name($attempt->state),
-        );
+        ];
 
         if ($attempt->state == quiz_attempt::FINISHED) {
-            $summarydata['completedon'] = array(
+            $summarydata['completedon'] = [
                 'title' => get_string('completedon', 'quiz'),
                 'content' => userdate($attempt->timefinish),
-            );
-            $summarydata['timetaken'] = array(
+            ];
+            $summarydata['timetaken'] = [
                 'title' => get_string('timetaken', 'quiz'),
                 'content' => $timetaken,
-            );
+            ];
         }
 
         if (!empty($overtime)) {
-            $summarydata['overdue'] = array(
+            $summarydata['overdue'] = [
                 'title' => get_string('overdue', 'quiz'),
                 'content' => $overtime,
-            );
+            ];
         }
 
         // Show marks (if the user is allowed to see marks at the moment).
@@ -395,10 +420,10 @@ class quiz_export_engine
                 // Cannot display grade.
 
             } else if (is_null($grade)) {
-                $summarydata['grade'] = array(
+                $summarydata['grade'] = [
                     'title' => get_string('grade', 'quiz'),
                     'content' => quiz_format_grade($quiz, $grade),
-                );
+                ];
 
             } else {
                 // Show raw marks only if they are different from the grade (like on the view page).
@@ -406,10 +431,10 @@ class quiz_export_engine
                     $a = new stdClass();
                     $a->grade = quiz_format_grade($quiz, $attempt->sumgrades);
                     $a->maxgrade = quiz_format_grade($quiz, $quiz->sumgrades);
-                    $summarydata['marks'] = array(
+                    $summarydata['marks'] = [
                         'title' => get_string('marks', 'quiz'),
                         'content' => get_string('outofshort', 'quiz', $a),
-                    );
+                    ];
                 }
 
                 // Now the scaled grade.
@@ -423,20 +448,20 @@ class quiz_export_engine
                 } else {
                     $formattedgrade = get_string('outof', 'quiz', $a);
                 }
-                $summarydata['grade'] = array(
+                $summarydata['grade'] = [
                     'title' => get_string('grade', 'quiz'),
                     'content' => $formattedgrade,
-                );
+                ];
             }
         }
 
         // Feedback if there is any, and the user is allowed to see it now.
         $feedback = $attemptobj->get_overall_feedback($grade);
         if ($options->overallfeedback && $feedback) {
-            $summarydata['feedback'] = array(
+            $summarydata['feedback'] = [
                 'title' => get_string('feedback', 'quiz'),
                 'content' => $feedback,
-            );
+            ];
         }
 
         return $summarydata;
@@ -448,8 +473,7 @@ class quiz_export_engine
      *
      * @return void
      */
-    protected function setup_new_page()
-    {
+    protected function setup_new_page() {
         global $CFG, $PAGE;
 
         if (!empty($CFG->moodlepageclass)) {
@@ -473,8 +497,7 @@ class quiz_export_engine
      * @param quiz_attempt $attemptobj The attempt object the summary is for.
      * @return array contains additionnals informations
      */
-    public function get_additionnal_informations($attemptobj)
-    {
+    public function get_additionnal_informations($attemptobj) {
         global $DB;
         $user_id = $attemptobj->get_userid();
         $user_informations = $DB->get_record('user', ['id' => $user_id], 'firstname, lastname');
@@ -482,7 +505,7 @@ class quiz_export_engine
             'firstname' => $user_informations->firstname,
             'lastname' => $user_informations->lastname,
             'coursename' => $attemptobj->get_course()->fullname,
-            'quizname' => $attemptobj->get_quiz_name()
+            'quizname' => $attemptobj->get_quiz_name(),
         ];
     }
 
@@ -492,8 +515,7 @@ class quiz_export_engine
      * @param $html
      * @return string|string[]
      */
-    protected function preloadImageWithCurrentSession($html)
-    {
+    protected function preloadImageWithCurrentSession($html) {
         $matches = [];
         $matches_content = [];
         preg_match_all("/<img.*src=\"(https?:\/\/.*)\".*>/U", $html, $matches);
