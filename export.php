@@ -111,6 +111,30 @@ class quiz_export_engine {
 
                 $pdf->WriteHTML($this->preloadImageWithCurrentSession($additionnal_informations), \Mpdf\HTMLParserMode::HTML_BODY);
                 $pdf->WriteHTML($this->preloadImageWithCurrentSession($contentHTML), \Mpdf\HTMLParserMode::DEFAULT_MODE);
+                // proctoring
+                $sql_proctoring = "select
+    f.*
+from
+    mdl_files f
+join mdl_context c ON
+                f.component = 'quizaccess_proctoring'
+            and f.filearea = 'picture'
+            and f.mimetype='image/png'
+            and f.userid = :userid
+and f.contextid=c.id
+join mdl_course_modules cm on cm.id=c.instanceid
+join mdl_quiz q on q.id=:qid and q.id=cm.instance";
+                global $DB;
+                $list = $DB->get_records_sql($sql_proctoring, ['userid' => $attemptobj->get_userid(), 'qid' => $attemptobj->get_quizid()]);
+                if ($list) {
+                    $images = '<br>';
+                    foreach ($list as $a) {
+                        $link = "{$CFG->wwwroot}/pluginfile.php/{$a->contextid}/quizaccess_proctoring/picture/{$a->itemid}/{$a->filename}";
+                        $images .= "<img src='$link'>";
+                    }
+
+                    $pdf->WriteHTML($this->preloadImageWithCurrentSession($images), \Mpdf\HTMLParserMode::DEFAULT_MODE);
+                }
                 break;
         }
         if ($pagemode == quiz_export_engine::PAGEMODE_TRUEPAGE || $pagemode == quiz_export_engine::PAGEMODE_QUESTIONPERPAGE) {
@@ -260,6 +284,7 @@ class quiz_export_engine {
      */
     protected function get_review_html($attemptobj, $slots, $page, $showall, $lastpage) {
         $html = $this->render($attemptobj, $slots, $page, $showall, $lastpage);
+
         return $html;
     }
 
@@ -277,33 +302,34 @@ class quiz_export_engine {
      */
     protected function render($attemptobj, $slots, $page, $showall, $lastpage) {
         global $PAGE;
-
+        $olimp = false;
         $options = $attemptobj->get_display_options(true);
-
-        // $options->attempt = 1;
-        $options->overallfeedback = 0; // общий отзыв
-        // $options->readonly = true;
-        // $options->clearwrong = false; // очистка
-        // $options->correctness = 1;
-        // $options->marks = 2;
-        // $options->markdp = "2";
-        // $options->flags = 1;
-        $options->feedback = 0; // отзыв - за правильный/неправильный ответ
-        // $options->numpartscorrect = 1;
-        $options->generalfeedback = 0; // отзык - общий
-        $options->rightanswer = 0; // отзыв - правильный ответ
-        $options->manualcomment = 0; // комментарии оценщика
-        $options->history = 0; // история оценок
-        // $options->extrainfocontent = ""; // отзыв - дополнительный текст
-        // $options->extrahistorycontent = ""; // история оценок - дополнительный текст
-
-        // $options->history = 0;
-        // $options->feedback = 0;
-        // $options->numpartscorrect = 0;
-        // $options->generalfeedback = 0;
-        // $options->rightanswer = 0;
-        // $options->manualcomment = 0;
-
+        if ($olimp) {
+            // для олимпиады
+            $options->overallfeedback = 0; // общий отзыв
+            $options->feedback = 0; // отзыв - за правильный/неправильный ответ
+            $options->generalfeedback = 0; // отзык - общий
+            $options->rightanswer = 0; // отзыв - правильный ответ
+            $options->manualcomment = 0; // комментарии оценщика
+            $options->history = 0; // история оценок
+        } else { // для архива
+            $options->attempt = 1;
+            $options->readonly = true;
+            $options->clearwrong = false; // очистка
+            $options->correctness = 1;
+            $options->marks = 2;
+            $options->markdp = "2";
+            $options->flags = 1;
+            $options->numpartscorrect = 1;
+            $options->extrainfocontent = ""; // отзыв - дополнительный текст
+            $options->extrahistorycontent = ""; // история оценок - дополнительный текст
+            $options->history = 0;
+            $options->feedback = 0;
+            $options->numpartscorrect = 0;
+            $options->generalfeedback = 0;
+            $options->rightanswer = 0;
+            $options->manualcomment = 0;
+        }
         // Ugly hack to get a new page
         $this->setup_new_page();
 
@@ -316,14 +342,15 @@ class quiz_export_engine {
         // $PAGE->set_heading($attemptobj->get_course()->fullname);
 
         $summarydata = $this->summary_table($attemptobj, $options);
-        unset($summarydata["startedon"]); // Тест начат
-        unset($summarydata["state"]); // Состояние
-        unset($summarydata["completedon"]); // Завершен
-        unset($summarydata["timetaken"]); // Прошло времени
-        unset($summarydata["marks"]); // Баллы
-        unset($summarydata["grade"]); // Оценка
-        unset($summarydata["user"]); // Студент
-
+        if ($olimp) {
+            unset($summarydata["startedon"]); // Тест начат
+            unset($summarydata["state"]); // Состояние
+            unset($summarydata["completedon"]); // Завершен
+            unset($summarydata["timetaken"]); // Прошло времени
+            unset($summarydata["marks"]); // Баллы
+            unset($summarydata["grade"]); // Оценка
+            unset($summarydata["user"]); // Студент
+        }
         // Display only content
         // $PAGE->force_theme('boost');
         $PAGE->set_pagelayout('embedded');
