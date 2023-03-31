@@ -163,6 +163,30 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
                 }
                 $current_page++;
             }
+            // proctoring
+                $sql_proctoring = "select
+    f.*
+from
+    mdl_files f
+join mdl_context c ON
+                f.component = 'quizaccess_proctoring'
+            and f.filearea = 'picture'
+            and f.mimetype='image/png'
+            and f.userid = :userid
+and f.contextid=c.id
+join mdl_course_modules cm on cm.id=c.instanceid
+join mdl_quiz q on q.id=:qid and q.id=cm.instance";
+                global $DB;
+                $list = $DB->get_records_sql($sql_proctoring, ['userid' => $attemptobj->get_userid(), 'qid' => $attemptobj->get_quizid()]);
+                if ($list) {
+                    $images = '<br>';
+                    foreach ($list as $a) {
+                        $link = "{$CFG->wwwroot}/pluginfile.php/{$a->contextid}/quizaccess_proctoring/picture/{$a->itemid}/{$a->filename}";
+                        $images .= "<img src='$link'>";
+                    }
+
+                    $pdf->WriteHTML($this->preloadImageWithCurrentSession($images), \Mpdf\HTMLParserMode::DEFAULT_MODE);
+                }
         }
         $pdf->Output($tmp_pdf_file, \Mpdf\Output\Destination::FILE);
 
@@ -545,7 +569,7 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
     protected function preloadImageWithCurrentSession($html) {
         $matches = [];
         $matches_content = [];
-        preg_match_all("/<img.*src=\"(https?:\/\/.*)\".*>/U", $html, $matches);
+        preg_match_all("/<img.*src=\"(.*)\".*>/U", $html, $matches);
 
         if (count($matches[1]) > 0) {
             $cookieFile = '/tmp/cookie-pdf';
@@ -553,7 +577,11 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
             // Without that we have to wait the script eneded to load images => time out
             session_write_close();
             foreach ($matches[1] as $match) {
-                $ch = curl_init($match);
+                $url = $match;
+                if (substr($url,0,1)=='/'){$url='https://i-institute.tsu.tula.ru'.$url;
+                }
+
+                $ch = curl_init($url);
                 $strCookie = session_name() . '=' . $_COOKIE[session_name()] . '; path=/';
                 curl_setopt($ch, CURLOPT_COOKIE, $strCookie);
                 curl_setopt($ch, CURLOPT_HEADER, 0);
