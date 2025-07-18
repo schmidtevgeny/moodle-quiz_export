@@ -25,7 +25,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once __DIR__ . '/vendor/autoload.php';
+global $CFG;
+require_once $CFG->dirroot . '/mod/quiz/report/export/vendor/autoload.php';
 
 /**
  * Quiz export engine class.
@@ -53,7 +54,6 @@ class quiz_export_engine {
 
     /**
      * Exports the given quiz attempt to a pdf file.
-     *
      * @param quiz_attempt $attemptobj The quiz attempt to export.
      * @param int $pagemode The page break mode used to render the quiz review.
      *                         One of PAGEMODE_TRUEPAGE, PAGEMODE_QUESTIONPERPAGE or PAGEMODE_SINGLEPAGE
@@ -64,6 +64,9 @@ class quiz_export_engine {
         $parameters_additionnal_informations = $this->get_additionnal_informations($attemptobj);
 
         $tmp_dir = $CFG->dataroot . '/mpdf';
+        if (!file_exists($tmp_dir)) {
+            mkdir($tmp_dir);
+        }
         ob_start();
         $tmp_file = tempnam($tmp_dir, "mdl-qexp_");
         ob_get_clean();
@@ -80,6 +83,7 @@ class quiz_export_engine {
         $pdf = new \Mpdf\Mpdf([
             'tempDir' => $tmp_dir,
         ]);
+        $pdf->autoLangToFont = true;
 
         // Start output buffering html
         ob_start();
@@ -87,9 +91,7 @@ class quiz_export_engine {
         $css = ob_get_clean();
         $pdf->WriteHTML($css, \Mpdf\HTMLParserMode::HEADER_CSS);
 
-        $additionnal_informations = '<h3 class="text-center" style="margin-bottom: -20px;">' .
-            get_string('documenttitle', 'quiz_export', $parameters_additionnal_informations) .
-            '</h3>';
+        $additionnal_informations = html_writer::tag('h3', get_string('documenttitle', 'quiz_export', $parameters_additionnal_informations), ['class' => 'text-center', 'style' => 'margin-bottom: -20px;']);
 
         switch ($pagemode) {
             default:
@@ -142,7 +144,7 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
             foreach ($html_files as $html_file) {
                 // Start output buffering html
                 ob_start();
-                include __DIR__ . '/style/styles.css';
+                include $CFG->dirroot . '/mod/quiz/report/export/style/styles.css';
                 $css = ob_get_clean();
                 $pdf->WriteHTML($css, \Mpdf\HTMLParserMode::HEADER_CSS);
 
@@ -150,7 +152,6 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
                 ob_start();
                 include $html_file;
                 $contentHTML = ob_get_clean();
-//                $contentHTML = preg_replace("/<input.*>/U", '', $contentHTML);
                 $contentHTML = preg_replace("/<input type=\"text\".+?value=\"/", ' - ', $contentHTML);
                 $contentHTML = preg_replace("/\" id=\"q.+?readonly\"(>| \/>)/", ' - ', $contentHTML);
                 if ($current_page == 0) {
@@ -227,7 +228,6 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
                 chmod($tmp_html_file, 0644);
 
                 $output = $this->get_review_html($attemptobj, $slots, $page, $showall, $lastpage);
-
                 file_put_contents($tmp_html_file, $output);
 
                 $tmp_html_files[] = $tmp_html_file;
@@ -251,7 +251,6 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
 
         for ($page = 0; $page < $num_pages; $page++) {
             $slots = $attemptobj->get_slots($page);
-
             $lastpage = $attemptobj->is_last_page($page);
 
             $tmp_dir = sys_get_temp_dir();
@@ -390,7 +389,6 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
     /**
      * Generates a quiz review summary table.
      * The Code is original from mod/quiz/review.php and just wrapped to a function.
-     *
      * @param quiz_attempt $attemptobj The attempt object the summary is for.
      * @param mod_quiz_display_options $options Extra options for the attempt.
      * @return array contains all table data for summary table
@@ -521,7 +519,6 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
     /**
      * Overwrites the $PAGE global with a new moodle_page instance.
      * Code is original from lib/setup.php and lib/adminlib.php
-     *
      * @return void
      */
     protected function setup_new_page() {
@@ -574,7 +571,7 @@ join mdl_quiz q on q.id=:qid and q.id=cm.instance";
         if (count($matches[1]) > 0) {
             $cookieFile = '/tmp/cookie-pdf';
             file_put_contents($cookieFile, "MoodleSession=" . $_COOKIE['MoodleSession']);
-            // Without that we have to wait the script eneded to load images => time out
+            // Without that we have to wait the script needed to load images => time out
             session_write_close();
             foreach ($matches[1] as $match) {
                 $url = $match;

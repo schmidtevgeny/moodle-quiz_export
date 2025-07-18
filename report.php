@@ -24,8 +24,10 @@
  */
 
 
-defined('MOODLE_INTERNAL') || die();
+use mod_quiz\local\reports\attempts_report;
 
+defined('MOODLE_INTERNAL') || die();
+global $CFG;
 require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 require_once($CFG->dirroot . '/mod/quiz/report/attemptsreport.php');
 require_once($CFG->dirroot . '/mod/quiz/report/export/export_form.php');
@@ -189,10 +191,11 @@ class quiz_export_report extends quiz_attempts_report
         chmod($tmp_zip_file, 0644);
 
         $zip = new ZipArchive;
-        $zip->open($tmp_zip_file);
+        $zip->open($tmp_zip_file, ZipArchive::OVERWRITE);
 
         foreach ($attemptids as $attemptid) {
             $attemptobj = quiz_attempt::create($attemptid);
+            $attemptobj->preload_all_attempt_step_users();
             $pdf_file = $exporter->a2pdf($attemptobj, $this->options->pagemode);
             $pdf_files[] = $pdf_file;
             $student = $DB->get_record('user', array('id' => $attemptobj->get_userid()));
